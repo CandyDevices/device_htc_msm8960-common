@@ -1,0 +1,7 @@
+[
+  {
+    "repository": "CandyDevices/device_qcom_common",
+    "target_path": "device/qcom/common"
+    "branch": "c5.1"
+  }
+]
