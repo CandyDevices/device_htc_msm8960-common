@@ -42,7 +42,6 @@
 #include <errno.h>
 #include <assert.h>
 #include <ctype.h>
-#include <alloca.h>
 #include <sys/un.h>
 #include <assert.h>
 #include <netinet/in.h>
@@ -1702,7 +1701,14 @@ static void dispatchVoiceRadioTech(Parcel& p, RequestInfo *pRI) {
 
     // RILs that support RADIO_STATE_ON should support this request.
     if (RADIO_STATE_ON == state) {
-        dispatchVoid(p, pRI);
+        if (property_get_bool("telephony.lteOnCdmaDevice", false)) {
+            RLOGD("dispatchVoiceRadioTech: lteOnCdmaDevice, forcing RADIO_TECH_1xRTT");
+            voiceRadioTech = RADIO_TECH_1xRTT;
+            RIL_onRequestComplete(pRI, RIL_E_SUCCESS, &voiceRadioTech,
+                                  sizeof(int));
+        } else {
+            dispatchVoid(p, pRI);
+        }
         return;
     }
 
@@ -3087,7 +3093,21 @@ static int responseRilSignalStrength(Parcel &p,
     }
     RIL_SignalStrength_v10 *p_cur;
     if (s_callbacks.version <= LAST_IMPRECISE_RIL_VERSION) {
-        if (responselen >= sizeof (RIL_SignalStrength_v5)) {
+        if (responselen >= sizeof (RIL_SignalStrength_HTC)) {
+            RIL_SignalStrength_HTC *p_cur = ((RIL_SignalStrength_HTC *) response);
+            p.writeInt32(p_cur->GW_SignalStrength.signalStrength);
+            p.writeInt32(p_cur->GW_SignalStrength.bitErrorRate);
+            p.writeInt32(p_cur->CDMA_SignalStrength.dbm);
+            p.writeInt32(p_cur->CDMA_SignalStrength.ecio);
+            p.writeInt32(p_cur->EVDO_SignalStrength.dbm);
+            p.writeInt32(p_cur->EVDO_SignalStrength.ecio);
+            p.writeInt32(p_cur->EVDO_SignalStrength.signalNoiseRatio);
+            p.writeInt32(p_cur->LTE_SignalStrength.signalStrength);
+            p.writeInt32(p_cur->LTE_SignalStrength.rsrp);
+            p.writeInt32(p_cur->LTE_SignalStrength.rsrq);
+            p.writeInt32(p_cur->LTE_SignalStrength.rssnr);
+            p.writeInt32(p_cur->LTE_SignalStrength.cqi);
+        } else if (responselen >= sizeof (RIL_SignalStrength_v5)) {
             p_cur = ((RIL_SignalStrength_v10 *) response);
             responseRilSignalStrengthV5(p, p_cur);
             if (responselen >= sizeof (RIL_SignalStrength_v6)) {
@@ -3347,9 +3367,16 @@ static int responseCellInfoListV6(Parcel &p, void *response, size_t responselen)
                 p.writeInt32(p_cur->CellInfo.lte.cellIdentityLte.ci);
                 p.writeInt32(p_cur->CellInfo.lte.cellIdentityLte.pci);
                 p.writeInt32(p_cur->CellInfo.lte.cellIdentityLte.tac);
+
+                // RSRP and RSRQ are being reported as dBm*10, not dBm
+                int rsrp = (p_cur->CellInfo.lte.signalStrengthLte.rsrp != INT_MAX ?
+                            p_cur->CellInfo.lte.signalStrengthLte.rsrp/10 : INT_MAX);
+                int rsrq = (p_cur->CellInfo.lte.signalStrengthLte.rsrq != INT_MAX ?
+                            p_cur->CellInfo.lte.signalStrengthLte.rsrq/10 : INT_MAX);
+
                 p.writeInt32(p_cur->CellInfo.lte.signalStrengthLte.signalStrength);
-                p.writeInt32(p_cur->CellInfo.lte.signalStrengthLte.rsrp);
-                p.writeInt32(p_cur->CellInfo.lte.signalStrengthLte.rsrq);
+                p.writeInt32(rsrp);
+                p.writeInt32(rsrq);
                 p.writeInt32(p_cur->CellInfo.lte.signalStrengthLte.rssnr);
                 p.writeInt32(p_cur->CellInfo.lte.signalStrengthLte.cqi);
                 p.writeInt32(p_cur->CellInfo.lte.signalStrengthLte.timingAdvance);
