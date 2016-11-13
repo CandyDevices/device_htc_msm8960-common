@@ -64,5 +64,8 @@ USE_OPENGL_RENDERER := true
 # Lights
 TARGET_PROVIDES_LIBLIGHT := true
 
+# Power
+TARGET_POWERHAL_VARIANT := qcom
+
 # Recovery
 TARGET_RECOVERY_DEVICE_MODULES += chargeled
